@@ -52,6 +52,41 @@ def _input_fn(channel):
 
     return ds
 
+def iterate_fn(channel):
+    from os import walk
+
+    f = []
+    for (dirpath, dirnames, filenames) in walk("/opt/ml/input/data/"):
+        f.extend(filenames)
+    print("file descriptors", f)
+
+    """Returns a Dataset for reading from a SageMaker PipeMode channel."""
+    features = {
+        "data": tf.io.FixedLenFeature([], tf.string),
+        "labels": tf.io.FixedLenFeature([], tf.int64),
+    }
+    
+    def parse(record):
+        global data_processed 
+        parsed = tf.io.parse_single_example(record, features)
+        return ({"data": tf.io.decode_raw(parsed["data"], tf.float64)}, parsed["labels"])
+
+    ds = PipeModeDataset(channel)
+    ds = ds.prefetch(PREFETCH_SIZE)
+    ds = ds.apply(
+        tf.data.experimental.map_and_batch(parse, batch_size=BATCH_SIZE, num_parallel_batches=NUM_PARALLEL_BATCHES)
+    )
+    
+    iterator = iter(ds)
+    datalen = 0 
+    while datalen < 10: 
+        try: 
+            opt = iterator.get_next() 
+            print(opt)
+            datalen+=1 
+        except: 
+            pass 
+
 
 def _parse_args():
 
@@ -74,7 +109,7 @@ def serving_input_fn():
 
 if __name__ == "__main__":
     args, unknown = _parse_args()
-
+    iterate_fn("visual")
     column = tf.feature_column.numeric_column("data", shape=(DIMENSION,))
     train_spec = tf.estimator.TrainSpec(train_input_fn, max_steps=3000)
     eval_spec = tf.estimator.EvalSpec(eval_input_fn)
