@@ -59,7 +59,8 @@ def iterate_fn(channel):
     for (dirpath, dirnames, filenames) in walk("/opt/ml/input/data/"):
         f.extend(filenames)
     print("file descriptors", f)
-
+    manifest = open("/opt/ml/input/data/{}-manifest".format(channel), "r")
+    print("manifest file:", manifest.readlines())
     """Returns a Dataset for reading from a SageMaker PipeMode channel."""
     features = {
         "data": tf.io.FixedLenFeature([], tf.string),
